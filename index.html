@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>链接提取器</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #1976D2;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .link-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .link-url {
+            flex-grow: 1;
+            margin-right: 10px;
+            word-break: break-all;
+        }
+        .copy-btn {
+            background: #2196F3;
+            padding: 5px 10px;
+            font-size: 14px;
+        }
+        .copy-btn:hover {
+            background: #1976D2;
+        }
+        .loading {
+            display: none;
+            margin: 10px 0;
+            color: #666;
+        }
+        .stats {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>链接提取器</h1>
+    <p>请在下方输入包含链接的文本：</p>
+    <textarea id="input" placeholder="在此粘贴文本..."></textarea>
+    <div class="button-group">
+        <button onclick="extractLinks()">提取链接</button>
+        <button class="secondary" id="exportCsv" onclick="exportToCsv()" disabled>导出CSV</button>
+    </div>
+    <div id="loading" class="loading">处理中...</div>
+    <div id="result"></div>
+
+    <script>
+        let extractedLinks = []; // 存储提取的链接
+
+        function removeDuplicates(arr) {
+            const seen = new Set();
+            return arr.filter(item => {
+                if (seen.has(item)) {
+                    return false;
+                }
+                seen.add(item);
+                return true;
+            });
+        }
+
+        function extractLinks() {
+            const text = document.getElementById('input').value;
+            const urlRegex = /(https?:\/\/[^\s<]+[^<.,:;"')\]\s])/g;
+            const links = text.match(urlRegex) || [];
+            
+            const resultDiv = document.getElementById('result');
+            if (links.length === 0) {
+                resultDiv.innerHTML = '<p>未找到任何链接</p>';
+                document.getElementById('exportCsv').disabled = true;
+                extractedLinks = [];
+                return;
+            }
+
+            extractedLinks = removeDuplicates(links);
+            document.getElementById('exportCsv').disabled = false;
+
+            resultDiv.innerHTML = `
+                <div class="stats">
+                    <p>统计信息：</p>
+                    <ul>
+                        <li>总链接数：${links.length}</li>
+                        <li>去重后链接数：${extractedLinks.length}</li>
+                        <li>重复链接数：${links.length - extractedLinks.length}</li>
+                    </ul>
+                </div>
+                <h2>找到 ${extractedLinks.length} 个独特链接：</h2>
+                ${extractedLinks.map((link, index) => `
+                    <div class="link-item">
+                        <span class="link-url">${index + 1}. <a href="${link}" target="_blank">${link}</a></span>
+                        <button class="copy-btn" onclick="copyLink('${link}')">复制</button>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function copyLink(link) {
+            navigator.clipboard.writeText(link).then(() => {
+                alert('链接已复制到剪贴板！');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制失败，请手动复制');
+            });
+        }
+
+        function exportToCsv() {
+            if (extractedLinks.length === 0) {
+                alert('没有可导出的链接！');
+                return;
+            }
+
+            // 创建CSV内容
+            const csvContent = [
+                ['序号', '链接'], // CSV 标题行
+                ...extractedLinks.map((link, index) => [index + 1, link])
+            ].map(row => row.join(',')).join('\n');
+
+            // 创建Blob对象
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `链接列表_${new Date().toISOString().slice(0,10)}.csv`;
+            
+            // 触发下载
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
